@@ -1,0 +1,10 @@
+data/raw/
+data/bootstrap.log
+models/
+frontend/node_modules/
+frontend/dist/
+__pycache__/
+.pytest_cache/
+.env
+data/start-run.log
+*.tsbuildinfo

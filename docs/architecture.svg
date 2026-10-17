@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 600" width="1100" height="600" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c2410c"/>
+    </marker>
+    <style>
+      .box  { stroke-width: 1.5; rx: 10; }
+      .t    { font-weight: 600; font-size: 15px; fill: #0f172a; }
+      .s    { fill: #334155; }
+      .m    { fill: #475569; font-family: Consolas, Menlo, monospace; font-size: 12px; }
+      .lbl  { fill: #475569; font-size: 11.5px; }
+      .edge { stroke: #475569; stroke-width: 1.6; fill: none; marker-end: url(#arr); }
+      .ctl  { stroke: #c2410c; stroke-width: 1.6; fill: none; stroke-dasharray: 6 4; marker-end: url(#arrC); }
+    </style>
+  </defs>
+
+  <rect width="1100" height="600" fill="#ffffff"/>
+
+  <!-- real data -->
+  <rect class="box" x="20" y="30" width="210" height="110" fill="#ecfdf5" stroke="#059669"/>
+  <text class="t" x="34" y="54">Real open data</text>
+  <text class="s" x="34" y="76">MTA GTFS static feed</text>
+  <text class="s" x="34" y="94">Hourly ridership (wujg-7c2s)</text>
+  <text class="s" x="34" y="112">Major incidents (ereg-mcvp)</text>
+  <text class="m" x="34" y="130">data/bootstrap.py</text>
+
+  <!-- MLlib batch -->
+  <rect class="box" x="550" y="30" width="250" height="90" fill="#fff7ed" stroke="#ea580c"/>
+  <text class="t" x="564" y="54">Spark MLlib (batch)</text>
+  <text class="m" x="564" y="76">train_crowding_model.py</text>
+  <text class="s" x="564" y="96">GBTRegressor · R² 0.979</text>
+  <text class="s" x="564" y="112">→ /models/crowding_gbt</text>
+
+  <!-- simulator -->
+  <rect class="box" x="20" y="190" width="210" height="190" fill="#f8fafc" stroke="#64748b"/>
+  <text class="t" x="34" y="214">Simulator (Python)</text>
+  <text class="s" x="34" y="238">Trains on GTFS shapes</text>
+  <text class="s" x="34" y="256">Card / mobile taps</text>
+  <text class="s" x="34" y="274">Wi-Fi + camera density</text>
+  <text class="s" x="34" y="292">Incidents (real rates)</text>
+  <text class="s" x="34" y="320">Applies control commands:</text>
+  <text class="s" x="34" y="338">dispatch · hold · short-turn</text>
+  <text class="m" x="34" y="366">simulator/</text>
+
+  <!-- kafka -->
+  <rect class="box" x="290" y="190" width="200" height="190" fill="#f1f5f9" stroke="#0f172a"/>
+  <text class="t" x="304" y="214">Apache Kafka 3.7</text>
+  <text class="lbl" x="304" y="232">KRaft · 3 partitions / topic</text>
+  <text class="m" x="304" y="258">vehicle.telemetry</text>
+  <text class="m" x="304" y="278">passenger.taps</text>
+  <text class="m" x="304" y="298">station.density</text>
+  <text class="m" x="304" y="318">incidents</text>
+  <text class="m" x="304" y="338" fill="#c2410c">control.commands</text>
+
+  <!-- spark streaming -->
+  <rect class="box" x="550" y="190" width="250" height="190" fill="#fff7ed" stroke="#ea580c"/>
+  <text class="t" x="564" y="214">Spark Structured Streaming</text>
+  <text class="lbl" x="564" y="232">1 driver · event time · watermarks</text>
+  <text class="m" x="564" y="258">vehicle_state   route_windows</text>
+  <text class="m" x="564" y="278">tap_breakdown   flow_1m (+ML)</text>
+  <text class="m" x="564" y="298">flow_15m        incidents</text>
+  <text class="s" x="564" y="326">+ recommender thread (20 s)</text>
+  <text class="lbl" x="564" y="346">ADD/REDUCE_FREQUENCY · HOLD</text>
+  <text class="lbl" x="564" y="362">SHORT_TURN · BUS_BRIDGE</text>
+
+  <!-- hbase -->
+  <rect class="box" x="860" y="190" width="220" height="190" fill="#eff6ff" stroke="#2563eb"/>
+  <text class="t" x="874" y="214">Apache HBase 2.1</text>
+  <text class="lbl" x="874" y="232">wide-column · salted · rev-ts keys</text>
+  <text class="m" x="874" y="256">vehicle_state</text>
+  <text class="m" x="874" y="272">vehicle_ts</text>
+  <text class="m" x="874" y="288">station_flow</text>
+  <text class="m" x="874" y="304">station_state</text>
+  <text class="m" x="874" y="320">route_metrics</text>
+  <text class="m" x="874" y="336">incidents</text>
+  <text class="m" x="874" y="352">recommendations</text>
+  <text class="m" x="874" y="368">system_meta</text>
+
+  <!-- backend -->
+  <rect class="box" x="860" y="440" width="220" height="80" fill="#f5f3ff" stroke="#7c3aed"/>
+  <text class="t" x="874" y="464">FastAPI</text>
+  <text class="s" x="874" y="484">REST + WebSocket /ws/live</text>
+  <text class="m" x="874" y="504">:8000</text>
+
+  <!-- frontend -->
+  <rect class="box" x="550" y="440" width="250" height="80" fill="#f5f3ff" stroke="#7c3aed"/>
+  <text class="t" x="564" y="464">React dashboard</text>
+  <text class="s" x="564" y="484">Leaflet map · Recharts · 5 pages</text>
+  <text class="m" x="564" y="504">:5173</text>
+
+  <!-- data flow -->
+  <path class="edge" d="M125,140 V188"/>
+  <text class="lbl" x="132" y="168">network, profiles</text>
+  <path class="edge" d="M230,75 H548"/>
+  <text class="lbl" x="330" y="68">real ridership</text>
+  <path class="edge" d="M675,120 V188"/>
+  <text class="lbl" x="682" y="160">model</text>
+  <path class="edge" d="M230,275 H288"/>
+  <path class="edge" d="M490,275 H548"/>
+  <path class="edge" d="M800,275 H858"/>
+  <text class="lbl" x="806" y="267">Thrift</text>
+  <path class="edge" d="M970,380 V438"/>
+  <text class="lbl" x="978" y="414">happybase</text>
+  <path class="edge" d="M858,480 H802" marker-start="url(#arr)"/>
+  <text class="lbl" x="806" y="472">2 s</text>
+
+  <!-- closed control loop -->
+  <path class="ctl" d="M970,520 V565 H390 V382"/>
+  <text class="lbl" x="420" y="558" fill="#c2410c">accept recommendation / inject incident → control.commands → simulator</text>
+  <path class="ctl" d="M290,338 H232"/>
+</svg>

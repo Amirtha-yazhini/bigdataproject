@@ -1,0 +1,35 @@
+# HBase DDL for the Transit Flow Optimizer.
+# The Spark driver creates these tables automatically through Thrift (spark/jobs/common.py:TABLES).
+# This file is the equivalent shell script, including region pre-splits for a real cluster:
+#   docker compose exec hbase hbase shell /hbase/create_tables.hbase   (after copying it in)
+#
+# Row-key conventions
+#   revTs     = 9999999999999 - epoch_ms  (13 digits)  -> newest rows sort first, prefix scans return latest data
+#   salt      = crc32(id) % 4                          -> spreads monotonically increasing writes across regions
+
+# Current vehicle state: one row per vehicle, overwritten in place. VERSIONS keep a short GPS/occupancy trail.
+create 'vehicle_state', {NAME => 'loc', VERSIONS => 20}, {NAME => 'occ', VERSIONS => 20}, {NAME => 'ops', VERSIONS => 5}
+
+# Telemetry time series. Row key: salt#route#vehicle#revTs  (prefix scan = one vehicle, newest first)
+create 'vehicle_ts', {NAME => 'd', VERSIONS => 1, TTL => 604800, COMPRESSION => 'NONE'}, SPLITS => ['1', '2', '3']
+
+# Passenger-flow windows. Row key: station#window(1m|15m)#revWindowStart
+#   tap:in, tap:out, tap:card_<TYPE> (atomic counters, columns appear dynamically), tap:transfers
+#   den:wifi, den:camera, den:fused, den:confidence
+#   pred:crowd_now, pred:crowd_15m, pred:crowd_30m, pred:level, pred:rate_next_hour, pred:model
+create 'station_flow', {NAME => 'tap', TTL => 2592000}, {NAME => 'den', TTL => 2592000}, {NAME => 'pred', TTL => 2592000}
+
+# Current station state + latest prediction (row key: station_id). VERSIONS keep recent predictions.
+create 'station_state', {NAME => 'cur', VERSIONS => 10}, {NAME => 'pred', VERSIONS => 10}
+
+# Route KPIs per 1-minute window. Row key: route#revWindowStart
+create 'route_metrics', {NAME => 'm', TTL => 2592000}
+
+# Incidents. Row key: salt#incident_id. impact:st_<station_id> = estimated delay (dynamic columns).
+create 'incidents', {NAME => 'info', VERSIONS => 3}, {NAME => 'impact', VERSIONS => 3}, SPLITS => ['1', '2', '3']
+
+# Recommendations. Row key: route#revTs#action. rec:status NEW -> ACCEPTED | DISMISSED
+create 'recommendations', {NAME => 'rec', VERSIONS => 3, TTL => 604800}
+
+# Pipeline metadata: clock, per-query Spark progress, tap schema counters, provenance, model metrics
+create 'system_meta', {NAME => 's'}

@@ -1,0 +1,134 @@
+name: transit-optimizer
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "2" }
+
+services:
+  # ------------------------------------------------------------------ messaging
+  kafka:
+    image: apache/kafka:3.7.0
+    hostname: kafka
+    ports: ["9094:9094"]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_LOG_RETENTION_HOURS: 6
+      KAFKA_HEAP_OPTS: "-Xmx384m -Xms256m"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+    logging: *logging
+
+  kafka-init:
+    image: apache/kafka:3.7.0
+    depends_on: { kafka: { condition: service_healthy } }
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        for t in vehicle.telemetry passenger.taps station.density incidents control.commands; do
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic $$t --partitions 3 --replication-factor 1
+        done
+    restart: "no"
+
+  # ------------------------------------------------------------------ wide-column storage
+  hbase:
+    image: harisekhon/hbase:2.1
+    hostname: hbase
+    ports: ["16010:16010", "9090:9090"]
+    environment:
+      HBASE_HEAPSIZE: 768m
+    volumes: [hbase-data:/hbase-data]
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 9090 && nc -z localhost 16010"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    logging: *logging
+
+  # ------------------------------------------------------------------ data + simulation
+  bootstrap:
+    build: ./data
+    volumes: ["./data:/data"]
+    restart: "no"
+
+  simulator:
+    build: ./simulator
+    depends_on:
+      kafka-init: { condition: service_completed_successfully }
+      bootstrap: { condition: service_completed_successfully }
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+      DATA_DIR: /data/processed
+      SIM_SPEED: ${SIM_SPEED:-6}
+      SIM_START: ${SIM_START:-07:00}
+      SIM_DAY: ${SIM_DAY:-weekday}
+      FLEET_SCALE: ${FLEET_SCALE:-0.5}
+      INCIDENT_MULTIPLIER: ${INCIDENT_MULTIPLIER:-40}
+    volumes: ["./data:/data:ro", "sim-state:/state"]
+    restart: unless-stopped
+    logging: *logging
+
+  # ------------------------------------------------------------------ Apache Spark (Structured Streaming + MLlib)
+  spark:
+    build: ./spark
+    depends_on:
+      kafka-init: { condition: service_completed_successfully }
+      bootstrap: { condition: service_completed_successfully }
+      hbase: { condition: service_healthy }
+    ports: ["4040:4040"]
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+      HBASE_HOST: hbase
+      DATA_DIR: /data/processed
+      MODEL_DIR: /models
+      CHECKPOINT_DIR: /checkpoints
+      FLEET_SCALE: ${FLEET_SCALE:-0.5}
+      SPARK_MASTER: ${SPARK_MASTER:-local[6]}
+      DRIVER_MEMORY: ${SPARK_DRIVER_MEMORY:-1200m}
+    volumes: ["./data:/data:ro", "./models:/models", "spark-checkpoints:/checkpoints"]
+    restart: unless-stopped
+    logging: *logging
+
+  # ------------------------------------------------------------------ API + dashboard
+  backend:
+    build: ./backend
+    depends_on:
+      hbase: { condition: service_healthy }
+      kafka-init: { condition: service_completed_successfully }
+      bootstrap: { condition: service_completed_successfully }
+    ports: ["8000:8000"]
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+      HBASE_HOST: hbase
+      DATA_DIR: /data/processed
+      MODEL_DIR: /models
+    volumes: ["./data:/data:ro", "./models:/models:ro"]
+    restart: unless-stopped
+    logging: *logging
+
+  frontend:
+    build: ./frontend
+    depends_on: [backend]
+    ports: ["5173:80"]
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  hbase-data:
+  sim-state:
+  spark-checkpoints:
